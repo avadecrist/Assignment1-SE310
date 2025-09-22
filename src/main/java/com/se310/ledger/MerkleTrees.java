@@ -12,53 +12,59 @@ import java.util.List;
  */
 public class MerkleTrees {
 
-    // A list of transaction
-    List<String> txList;
+    // Immutable list of leaves (hex-strings representing transactions or node hashes)
+    private final List<String> leaves;
 
-    // Merkle Root
-    String root;
+    // Computed merkle root (hex string)
+    private final String root;
 
+    // Hashing strategy (injected for testability and algorithm swap)
+    private final HashStrategy hashStrategy;
 
+    /**
+     * Construct and compute the Merkle root using the default SHA-256 strategy.
+     * @param txList list of transaction hex strings or raw strings
+     */
     public MerkleTrees(List<String> txList) {
-        this.txList = txList;
-        root = "";
+        this(txList, new SHA256HashStrategy());
     }
 
-    public void merkle_tree() {
-        List<String> tempTxList = new ArrayList<String>();
+    /**
+     * Construct and compute the Merkle root with an injected hash strategy.
+     * This follows DIP and makes the class testable with a deterministic hash implementation.
+     */
+    public MerkleTrees(List<String> txList, HashStrategy hashStrategy) {
+        this.leaves = new ArrayList<>(txList == null ? List.of() : txList);
+        this.hashStrategy = hashStrategy == null ? new SHA256HashStrategy() : hashStrategy;
+        this.root = computeRoot(new ArrayList<>(this.leaves));
+    }
 
-        for (int i = 0; i < this.txList.size(); i++) {
-            tempTxList.add(this.txList.get(i));
-        }
+    private String computeRoot(List<String> tempTxList) {
+        if (tempTxList.isEmpty()) return "";
 
         List<String> newTxList = getNewTxList(tempTxList);
-        while (newTxList.size() != 1) {
+        while (newTxList.size() > 1) {
             newTxList = getNewTxList(newTxList);
         }
 
-        this.root = newTxList.get(0);
+        return newTxList.get(0);
     }
 
     private List<String> getNewTxList(List<String> tempTxList) {
-
-        List<String> newTxList = new ArrayList<String>();
+        List<String> newTxList = new ArrayList<>();
         int index = 0;
         while (index < tempTxList.size()) {
-            // left
             String left = tempTxList.get(index);
             index++;
 
-            // right
             String right = "";
             if (index != tempTxList.size()) {
                 right = tempTxList.get(index);
             }
 
-            // sha2 hex value
-            String sha2HexValue = getSHA2HexValue(left + right);
+            String sha2HexValue = hashStrategy.hash(left + right);
             newTxList.add(sha2HexValue);
             index++;
-
         }
 
         return newTxList;

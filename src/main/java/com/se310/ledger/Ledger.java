@@ -13,17 +13,20 @@ public class Ledger {
     private String name;
     private String description;
     private String seed;
-    private static NavigableMap <Integer,Block> blockMap;
-    private static Block uncommittedBlock;
+    // Make blockMap and uncommittedBlock instance fields to avoid shared mutable static state.
+    // Principle: Single Responsibility & Dependency Inversion — keep Ledger instance-scoped so multiple ledgers
+    // (for tests or DI) can exist and so state isn't shared globally.
+    private NavigableMap<Integer, Block> blockMap;
+    private Block uncommittedBlock;
 
+    // Keep a single Ledger singleton entry point but internal state is instance-based.
     private static Ledger ledger;
 
-    // Initialize genesis block and the account list
-    static {
-        blockMap = new TreeMap<>();
-        uncommittedBlock = new Block(1, "");
-        uncommittedBlock.addAccount("master", new Account("master", Integer.MAX_VALUE));
-    }
+    // Delegate responsibilities to collaborators to follow Single Responsibility and Dependency Inversion:
+    // - TransactionProcessor handles transaction application logic and block committing.
+    // - LedgerValidator handles validation rules for the ledger.
+    private final TransactionProcessor transactionProcessor;
+    private final LedgerValidator ledgerValidator;
 
     /**
      * Create singleton of the Ledger
@@ -49,6 +52,16 @@ public class Ledger {
         this.name = name;
         this.description = description;
         this.seed = seed;
+        // Initialize instance-scoped state previously held in static initializer
+        this.blockMap = new TreeMap<>();
+        this.uncommittedBlock = new Block(1, "");
+        // Create master account in uncommitted block
+        this.uncommittedBlock.addAccount("master", new Account("master", Integer.MAX_VALUE));
+
+        // Create collaborators, injecting this Ledger so they operate on instance state.
+        // Principle: Dependency Inversion — high level Ledger delegates to lower-level processors via abstractions.
+        this.transactionProcessor = new TransactionProcessor(this);
+        this.ledgerValidator = new LedgerValidator(this);
     }
 
     /**
@@ -87,9 +100,8 @@ public class Ledger {
      * Getter Method for the seed
      * @return String
      */
-    public String getSeed() {
-        return seed;
-    }
+    // Removed public getSeed to reduce public API surface. A package-private accessor is provided
+    // for collaborators (TransactionProcessor) that need read access.
 
     /**
      * Setter Method for the seed
@@ -106,7 +118,9 @@ public class Ledger {
      */
     public Account createAccount(String address) throws LedgerException {
 
-        if(uncommittedBlock.getAccount(address) != null){
+        // Validate account does not already exist in the current uncommitted block
+        // Principle: SRP — Ledger is responsible for account lifecycle operations; keep check here concise.
+        if (uncommittedBlock.getAccount(address) != null) {
             throw new LedgerException("Create Account", "Account Already Exists");
         }
 
@@ -123,73 +137,10 @@ public class Ledger {
      */
     public synchronized String processTransaction(Transaction transaction) throws LedgerException {
 
-        //Check for transaction specification conditions
-        if(transaction.getAmount() < 0 || transaction.getAmount() > Integer.MAX_VALUE ){
-            throw new LedgerException("Process Transaction", "Transaction Amount Is Out of Range");
-        } else if (transaction.getFee() < 10) {
-            throw new LedgerException("Process Transaction", "Transaction Fee Must Be Greater Than 10");
-        } else if (transaction.getNote().length() > 1024){
-            throw new LedgerException("Process Transaction", "Note Length Must Be Less Than 1024 Chars");
-        }
-
-        if(ledger.getTransaction(transaction.getTransactionId()) != null){
-            throw new LedgerException("Process Transaction", "Transaction Id Must Be Unique");
-        }
-
-        Account tempPayerAccount = transaction.getPayer();
-        Account tempReceiverAccount = transaction.getReceiver();
-
-        if(transaction.getPayer().getBalance() < (transaction.getAmount() + transaction.getFee()))
-            throw new LedgerException("Process Transaction", "Payer Does Not Have Required Funds");
-
-        //Deduct balance of the payer
-        tempPayerAccount.setBalance(tempPayerAccount.getBalance()
-                - transaction.getAmount() - transaction.getFee());
-        //Increase balance of the receiver
-        tempReceiverAccount.setBalance(tempReceiverAccount.getBalance() + transaction.getAmount());
-
-        uncommittedBlock.getTransactionList().add(transaction);
-
-        //Check to see if account blocked has reached max size
-        if (uncommittedBlock.getTransactionList().size() == 10){
-
-            List<String> tempTxList = new ArrayList<>();
-            tempTxList.add(seed);
-
-            //Loop through the list of transaction to get the hash
-            for( Transaction tempTx : uncommittedBlock.getTransactionList()){
-                tempTxList.add(tempTx.toString());
-            }
-
-            MerkleTrees merkleTrees = new MerkleTrees(tempTxList);
-            merkleTrees.merkle_tree();
-            uncommittedBlock.setHash(merkleTrees.getRoot());
-
-            //Commit uncommitted block
-            blockMap.put(uncommittedBlock.getBlockNumber(), uncommittedBlock);
-
-            //Get committed block
-            Block committedBlock = blockMap.lastEntry().getValue();
-            Map<String,Account> accountMap = committedBlock.getAccountBalanceMap();
-
-            //Get all the accounts
-            List<Account> accountList = new ArrayList<Account>(accountMap.values());
-
-            //Create next block
-            uncommittedBlock = new Block(uncommittedBlock.getBlockNumber() + 1,
-                    committedBlock.getHash());
-
-            //Replicate accounts
-            for (Account account : accountList) {
-                Account tempAccount = (Account) account.clone();
-                uncommittedBlock.addAccount(tempAccount.getAddress(), tempAccount);
-            }
-
-            //Link to previous block
-            uncommittedBlock.setPreviousBlock(committedBlock);
-        }
-
-        return transaction.getTransactionId();
+        // Delegate transaction processing to a dedicated processor to follow SRP.
+        // TransactionProcessor handles applying balances, committing blocks, and creating merkle roots.
+        // Principle: SRP (separate processing from Ledger container) and Dependency Inversion (Ledger delegates to a collaborator).
+        return this.transactionProcessor.processTransaction(transaction);
     }
 
     /**
@@ -200,7 +151,8 @@ public class Ledger {
      */
     public Integer getAccountBalance(String address) throws LedgerException {
 
-        if(blockMap.isEmpty()){
+        // Operate on instance-scoped blockMap
+        if (blockMap.isEmpty()) {
             throw new LedgerException("Get Account Balance", "Account Is Not Committed to a Block");
         }
 
@@ -219,11 +171,11 @@ public class Ledger {
      */
     public Map<String,Integer> getAccountBalances(){
 
-        if(blockMap.isEmpty())
+        if (blockMap.isEmpty())
             return null;
 
         Block committedBlock = blockMap.lastEntry().getValue();
-        Map<String,Account> accountMap = committedBlock.getAccountBalanceMap();
+        Map<String, Account> accountMap = committedBlock.getAccountBalanceMap();
 
         Map<String, Integer> balances = new HashMap<>();
         List<Account> accountList = new ArrayList<>(accountMap.values());
@@ -241,6 +193,7 @@ public class Ledger {
      * @return Block or Null
      */
     public Block getBlock (Integer blockNumber) throws LedgerException {
+        // Instance-scoped access
         Block block = blockMap.get(blockNumber);
         if(block == null){
             throw new LedgerException("Get Block", "Block Does Not Exist");
@@ -255,19 +208,20 @@ public class Ledger {
      */
     public Transaction getTransaction (String transactionId){
 
-        for ( Entry mapElement : blockMap.entrySet()) {
+        // Search committed blocks
+        for (Map.Entry<Integer, Block> mapElement : blockMap.entrySet()) {
 
             // Finding specific transactions in the committed blocks
-            Block tempBlock = (Block) mapElement.getValue();
-            for (Transaction transaction : tempBlock.getTransactionList()){
-                if(transaction.getTransactionId().equals(transactionId)){
+            Block tempBlock = mapElement.getValue();
+            for (Transaction transaction : tempBlock.getTransactionList()) {
+                if (transaction.getTransactionId().equals(transactionId)) {
                     return transaction;
                 }
             }
         }
         // Finding specific transactions in the uncommitted block
-        for (Transaction transaction : uncommittedBlock.getTransactionList()){
-            if(transaction.getTransactionId().equals(transactionId)){
+        for (Transaction transaction : uncommittedBlock.getTransactionList()) {
+            if (transaction.getTransactionId().equals(transactionId)) {
                 return transaction;
             }
         }
@@ -289,49 +243,9 @@ public class Ledger {
      * Check account balances against the total
      */
     public void validate() throws LedgerException {
-
-        if(blockMap.isEmpty()){
-            throw new LedgerException("Validate", "No Block Has Been Committed");
-        }
-
-        Block committedBlock = blockMap.lastEntry().getValue();
-        Map<String,Account> accountMap = committedBlock.getAccountBalanceMap();
-        List<Account> accountList = new ArrayList<>(accountMap.values());
-
-        int totalBalance = 0;
-        for (Account account : accountList) {
-            totalBalance += account.getBalance();
-        }
-
-        int fees = 0;
-        String hash;
-        for(Integer key : blockMap.keySet()){
-            Block block = blockMap.get(key);
-
-            //Check for Hash Consistency
-            if(block.getBlockNumber() != 1)
-                if(!block.getPreviousHash().equals(block.getPreviousBlock().getHash())){
-                    throw new LedgerException("Validate", "Hash Is Inconsistent: "
-                            + block.getBlockNumber());
-            }
-
-            //Check for Transaction Count
-            if(block.getTransactionList().size() != 10){
-                throw new LedgerException("Validate", "Transaction Count Is Not 10 In Block: "
-                        + block.getBlockNumber());
-            }
-
-            for(Transaction transaction : block.getTransactionList()){
-                fees += transaction.getFee();
-            }
-        }
-
-        int adjustedBalance = totalBalance + fees;
-
-        //Check for account balances against the total
-        if(adjustedBalance != Integer.MAX_VALUE){
-            throw new LedgerException("Validate", "Balance Does Not Add Up");
-        }
+    // Delegate validation to LedgerValidator to keep Ledger focused on state management.
+    // Principle: SRP (separate validation logic) and OCP (Validator can be extended with new rules without modifying Ledger).
+    this.ledgerValidator.validate();
 
     }
 
@@ -343,12 +257,29 @@ public class Ledger {
         return uncommittedBlock;
     }
 
+    // Package-private accessor for collaborators (TransactionProcessor) to update uncommitted block.
+    // Kept non-public to avoid widening API surface.
+    void setUncommittedBlock(Block block) {
+        this.uncommittedBlock = block;
+    }
+
+    // Package-private accessor for TransactionProcessor to commit into blockMap.
+    java.util.NavigableMap<Integer, Block> getBlockMap() {
+        return this.blockMap;
+    }
+
+    // Package-private accessor for TransactionProcessor to read the ledger seed.
+    String getSeed() {
+        return this.seed;
+    }
+
     /**
      * Helper method allowing reset the state of the Ledger
      */
     public synchronized void reset(){
-        blockMap = new TreeMap<>();
-        uncommittedBlock = new Block(1, "");
-        uncommittedBlock.addAccount("master", new Account("master", Integer.MAX_VALUE));
+        // Reset instance-scoped state; keep same collaborators (they reference this ledger instance)
+        this.blockMap = new TreeMap<>();
+        this.uncommittedBlock = new Block(1, "");
+        this.uncommittedBlock.addAccount("master", new Account("master", Integer.MAX_VALUE));
     }
 }

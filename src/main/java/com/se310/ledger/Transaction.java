@@ -8,12 +8,15 @@ package com.se310.ledger;
  */
 public class Transaction {
 
-    private String transactionId;
-    private Integer amount;
-    private Integer fee;
-    private String note;
-    private Account payer;
-    private Account receiver;
+    // Make fields final to make Transaction immutable (Single Responsibility: represent a transaction value)
+    private final String transactionId;
+    private final Integer amount;
+    private final Integer fee;
+    private final String note;
+    // Store only addresses (Strings) for payer and receiver to avoid coupling Transaction to mutable Account
+    // objects. This enforces immutability and SRP: Transaction is a data record only.
+    private final String payerAddress;
+    private final String receiverAddress;
 
     /**
      * Constructor for Transaction
@@ -24,13 +27,42 @@ public class Transaction {
      * @param payer
      * @param receiver
      */
-    public Transaction(String transactionId, Integer amount, Integer fee, String note, Account payer, Account receiver) {
+    /**
+     * Constructor enforces all invariants for a Transaction.
+     * Comments: validate inputs here to keep Transaction instances always valid (Single Responsibility).
+     */
+    public Transaction(String transactionId, Integer amount, Integer fee, String note, String payerAddress, String receiverAddress) {
+        // Validate transactionId (cannot be null/empty) - defensive programming
+        if (transactionId == null || transactionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("transactionId must be provided");
+        }
+
+        // Validate amount (cannot be null and must be non-negative)
+        if (amount == null || amount < 0) {
+            throw new IllegalArgumentException("amount must be a non-negative Integer");
+        }
+
+        // Validate fee (cannot be null and must be non-negative)
+        if (fee == null || fee < 0) {
+            throw new IllegalArgumentException("fee must be a non-negative Integer");
+        }
+
+        // Validate note (allow null but convert to empty string to simplify usage)
+        if (note == null) {
+            note = ""; // normalize null to empty
+        }
+
+        // Validate addresses (cannot be null/empty)
+        if (payerAddress == null || payerAddress.trim().isEmpty() || receiverAddress == null || receiverAddress.trim().isEmpty()) {
+            throw new IllegalArgumentException("payerAddress and receiverAddress must be provided");
+        }
+
         this.transactionId = transactionId;
         this.amount = amount;
         this.fee = fee;
         this.note = note;
-        this.payer = payer;
-        this.receiver = receiver;
+        this.payerAddress = payerAddress;
+        this.receiverAddress = receiverAddress;
     }
 
     /**
@@ -45,9 +77,8 @@ public class Transaction {
      * Setter method for transaction id
      * @param transactionId
      */
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
-    }
+    // Removed setter to make Transaction immutable. Mutability caused by setters violates Single Responsibility
+    // and can lead to unexpected state changes elsewhere in the system.
 
     /**
      * Getter method for transaction amount
@@ -61,9 +92,7 @@ public class Transaction {
      * Setter method for transaction amount
      * @param amount
      */
-    public void setAmount(Integer amount) {
-        this.amount = amount;
-    }
+    // Setter removed: amount is final and set at construction time.
 
     /**
      * Getter method for transaction fee
@@ -77,9 +106,7 @@ public class Transaction {
      * Setter method for transaction fee
      * @param fee
      */
-    public void setFee(Integer fee) {
-        this.fee = fee;
-    }
+    // Setter removed: fee is final and set at construction time.
 
     /**
      * Getter method for transaction note
@@ -93,41 +120,37 @@ public class Transaction {
      * Setter method for transaction note
      * @param note
      */
-    public void setNote(String note) {
-        this.note = note;
-    }
+    // Setter removed: note is final and set at construction time.
 
     /**
      * Getter method for payer
      * @return
      */
-    public Account getPayer() {
-        return payer;
+    // Getter returns payer address; Transaction no longer exposes Account objects (decoupled)
+    public String getPayerAddress() {
+        return payerAddress;
     }
 
     /**
      * Setter method for payer
      * @param payer
      */
-    public void setPayer(Account payer) {
-        this.payer = payer;
-    }
+    // Setter removed: payer is final and set at construction time.
 
     /**
      * Getter method for receiver
      * @return
      */
-    public Account getReceiver() {
-        return receiver;
+    // Getter returns receiver address; Transaction no longer exposes Account objects (decoupled)
+    public String getReceiverAddress() {
+        return receiverAddress;
     }
 
     /**
      * Setter method for receiver
      * @param receiver
      */
-    public void setReceiver(Account receiver) {
-        this.receiver = receiver;
-    }
+    // Setter removed: receiver is final and set at construction time.
 
     /**
      * Method used by MerkleTrees
@@ -135,12 +158,33 @@ public class Transaction {
      */
     @Override
     public String toString() {
-        return "Transaction Id: " + transactionId +
-                ", Amount: " + amount +
-                ", Fee: " + fee +
-                ", Note: " + note +
-                ", Payer: " + payer.getAddress() +
-                ", Receiver: " + receiver.getAddress();
+        // keep the representation stable; using immutable fields ensures consistency when toString is called
+    // Use stored addresses in representation; works consistently because Transaction is immutable
+    return "Transaction Id: " + transactionId +
+        ", Amount: " + amount +
+        ", Fee: " + fee +
+        ", Note: " + note +
+        ", Payer: " + payerAddress +
+        ", Receiver: " + receiverAddress;
+    }
+
+    /**
+     * Implement equals and hashCode so Transaction can be used safely in collections and comparisons.
+     * Equality is based on transactionId which is treated as unique identifier in the system.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Transaction that = (Transaction) o;
+
+        return transactionId.equals(that.transactionId);
+    }
+
+    @Override
+    public int hashCode() {
+        return transactionId.hashCode();
     }
 }
 

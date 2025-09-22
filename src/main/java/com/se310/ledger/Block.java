@@ -12,8 +12,8 @@ import java.util.Map;
  * @version 1.0
  */
 public class Block {
-
-    private Integer blockNumber;
+    // blockNumber is final: identity of a block should not change after creation (SRP/LSP)
+    private final Integer blockNumber;
     private String previousHash;
     private String hash;
     private final Map<String,Account> accountBalanceMap = new HashMap<String,Account>();
@@ -38,13 +38,7 @@ public class Block {
         return blockNumber;
     }
 
-    /**
-     * Setter Method for block number
-     * @param blockNumber
-     */
-    public void setBlockNumber(Integer blockNumber) {
-        this.blockNumber = blockNumber;
-    }
+    // Removed setBlockNumber to keep block identity immutable after creation.
 
     /**
      * Getter method for the Hash of the previous block
@@ -83,7 +77,8 @@ public class Block {
      * @return
      */
     public Map<String, Account> getAccountBalanceMap() {
-        return accountBalanceMap;
+        // Return an unmodifiable view to prevent external mutation of internal state (encapsulation)
+        return java.util.Collections.unmodifiableMap(accountBalanceMap);
     }
 
     /**
@@ -91,7 +86,8 @@ public class Block {
      * @return
      */
     public List<Transaction> getTransactionList() {
-        return transactionList;
+        // Return an unmodifiable view; callers should use addTransaction to modify transactions
+        return java.util.Collections.unmodifiableList(transactionList);
     }
 
     /**
@@ -101,6 +97,17 @@ public class Block {
      */
     public void addAccount(String address, Account account){
         this.accountBalanceMap.put(address, account);
+    }
+
+    /**
+     * Controlled API to add a transaction to the block. This centralizes any checks and
+     * prevents clients from mutating the transaction list directly.
+     */
+    public void addTransaction(Transaction transaction) {
+        if (transaction == null) {
+            throw new IllegalArgumentException("transaction must not be null");
+        }
+        this.transactionList.add(transaction);
     }
 
     /**

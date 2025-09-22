@@ -17,18 +17,20 @@ import java.util.stream.Stream;
  * @version 1.0
  */
 public class CommandProcessor {
+    // Make ledger an instance field so CommandProcessor instances don't share global state.
+    // Principle: Dependency Inversion & Single Responsibility - allow multiple processors/ledgers and easier testing.
+    private Ledger ledger = null;
 
-    private static Ledger ledger = null;
+    /**
+     * Process a single command line. Converted from static to instance method so the processor can
+     * maintain instance-scoped state (ledger) and be injected or mocked in tests.
+     */
+    public void processCommand(String command) throws CommandProcessorException {
 
-    public static void processCommand(String command) throws CommandProcessorException {
+        // Tokenize the incoming command using a helper to separate concerns (SRP).
+        List<String> tokens = tokenize(command);
 
-        List<String> tokens = new ArrayList<>();
-        //Split the line into tokens between spaces and quotes
-        Matcher matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(command);
-        while (matcher.find())
-            tokens.add(matcher.group(1).replace("\"", ""));
-
-        switch (tokens.get(0)) {
+    switch (tokens.get(0)) {
             case "create-ledger" -> {
                 if(tokens.size() != 6)
                     throw new CommandProcessorException("create-ledger", "Missing Arguments");
@@ -94,8 +96,9 @@ public class CommandProcessor {
                     throw new CommandProcessorException("process-transaction", "Account Does Not Exist") ;
                 }
 
-                Transaction tempTransaction = new Transaction(tokens.get(1), Integer.parseInt(tokens.get(3)),
-                        Integer.parseInt(tokens.get(5)), tokens.get(7), payer, receiver);
+        // Construct Transaction with addresses instead of Account objects to keep Transaction immutable
+        Transaction tempTransaction = new Transaction(tokens.get(1), Integer.parseInt(tokens.get(3)),
+            Integer.parseInt(tokens.get(5)), tokens.get(7), payer.getAddress(), receiver.getAddress());
                 try {
                     ledger.processTransaction(tempTransaction);
                 } catch (LedgerException e) {
@@ -136,8 +139,8 @@ public class CommandProcessor {
                 System.out.println("Transaction ID: " + transaction.getTransactionId() + " "
                         + "Amount: " + transaction.getAmount() + " " + "Fee: "
                         + transaction.getFee() + " " + "Note: " + transaction.getNote() + " " + "Payer: "
-                        + transaction.getPayer().getAddress() + " " + "Receiver: "
-                        + transaction.getReceiver().getAddress()
+                        + transaction.getPayerAddress() + " " + "Receiver: "
+                        + transaction.getReceiverAddress()
                 );
             }
             case "validate" -> {
@@ -155,8 +158,22 @@ public class CommandProcessor {
 
             }
 
+
         }
 
+    }
+
+    /**
+     * Tokenize the raw command string into a List of tokens. Extracted from the original inline logic
+     * so parsing concerns are separated from command execution (SRP).
+     */
+    private List<String> tokenize(String command) {
+        List<String> tokens = new ArrayList<>();
+        // Split the line into tokens between spaces and quotes
+        Matcher matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(command);
+        while (matcher.find())
+            tokens.add(matcher.group(1).replace("\"", ""));
+        return tokens;
     }
 
     /**
@@ -164,8 +181,7 @@ public class CommandProcessor {
      */
     public void processCommandFile(String fileName){
 
-        List<String> tokens = new ArrayList<>();
-
+        // Removed unused tokens variable; this method streams lines and delegates to processCommand
         AtomicInteger atomicInteger = new AtomicInteger(0);
 
         //Process all the lines in the file
@@ -178,9 +194,11 @@ public class CommandProcessor {
                                 processCommand(line);
                             }
                         } catch (CommandProcessorException e) {
-                            e.setLineNumber(atomicInteger.get());
-                            System.out.println("Failed due to: " + e.getReason() + " for Command: " + e.getCommand()
-                                    + " On Line Number: " + e.getLineNumber());
+                            // CommandProcessorException became immutable. Create a small view message
+                            // and print using the standard getMessage() and getCommand() accessors.
+                            int currentLine = atomicInteger.get();
+                            System.out.println("Failed due to: " + e.getMessage() + " for Command: " + e.getCommand()
+                                    + " On Line Number: " + currentLine);
                         }
                     });
 

@@ -8,7 +8,9 @@ package com.se310.ledger;
  */
 public class Account {
 
-    private String address;
+    // Make address final to preserve account identity and prevent accidental changes (SRP)
+    private final String address;
+    // Keep balance as Integer internally but control mutation via methods (credit/debit)
     private Integer balance;
 
     /**
@@ -17,6 +19,14 @@ public class Account {
      * @param balance
      */
     public Account(String address, Integer balance) {
+        // Validate inputs: address must be present and balance non-negative
+        if (address == null || address.trim().isEmpty()) {
+            throw new IllegalArgumentException("address must be provided");
+        }
+        if (balance == null || balance < 0) {
+            throw new IllegalArgumentException("balance must be non-negative");
+        }
+
         this.address = address;
         this.balance = balance;
     }
@@ -29,13 +39,7 @@ public class Account {
         return address;
     }
 
-    /**
-     * Setter Method for account address
-     * @param address
-     */
-    public void setAddress(String address) {
-        this.address = address;
-    }
+    // Removed setAddress to keep account identity immutable (SRP: account identity shouldn't change)
 
     /**
      * Getter method for account balance
@@ -45,12 +49,31 @@ public class Account {
         return balance;
     }
 
+    // Expose controlled balance mutation methods instead of a generic setter.
+    // This centralizes validation and protects invariants (e.g., no negative balances).
+
     /**
-     * Setter method for account balance
-     * @param balance
+     * Increase the account balance by amount. Validates amount > 0.
      */
-    public void setBalance(Integer balance) {
-        this.balance = balance;
+    public void credit(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("credit amount must be non-negative");
+        }
+        // Consider overflow check if needed
+        this.balance = this.balance + amount;
+    }
+
+    /**
+     * Decrease the account balance by amount. Throws LedgerException on insufficient funds.
+     */
+    public void debit(int amount) throws LedgerException {
+        if (amount < 0) {
+            throw new IllegalArgumentException("debit amount must be non-negative");
+        }
+        if (this.balance < amount) {
+            throw new LedgerException("Account", "Insufficient Funds");
+        }
+        this.balance = this.balance - amount;
     }
 
     /**
@@ -58,6 +81,14 @@ public class Account {
      * @return
      */
     public Object clone() {
+        // Provide a typed copy() method instead of relying on Object.clone
         return new Account(this.getAddress(), this.balance);
+    }
+
+    /**
+     * Typed copy method used by Ledger when replicating accounts between blocks.
+     */
+    public Account copy() {
+        return new Account(this.address, this.balance);
     }
 }

@@ -7,49 +7,50 @@ package com.se310.ledger;
  * @version 1.0
  */
 public class LedgerException extends Exception {
+    // Make the exception immutable: action and line/ reason are final and set at construction.
+    // Calling super(message) ensures getMessage() returns the reason and avoids duplication.
+    private static final long serialVersionUID = 1L;
 
-    private String action;
-    private String reason;
+    private final String action;
 
     /**
-     * Exception Constructor
-     * @param action
-     * @param reason
+     * Construct a LedgerException with an action and a reason. Stores action and sets the
+     * Throwable message to reason. This class is intentionally immutable to follow SRP and
+     * make exceptions safe to pass between layers without introducing side-effects.
+     *
+     * @param action short action identifier (e.g., "create-account")
+     * @param reason human-readable reason
      */
     public LedgerException(String action, String reason) {
+        super(reason);
         this.action = action;
-        this.reason = reason;
     }
 
     /**
-     * Getter method for action
-     * @return
+     * Construct a LedgerException with a cause.
      */
+    public LedgerException(String action, String reason, Throwable cause) {
+        super(reason, cause);
+        this.action = action;
+    }
+
     public String getAction() {
         return action;
     }
 
     /**
-     * Setter method for action
-     * @param action
-     */
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    /**
-     * Setter method for reason
-     * @return
+     * For backward compatibility callers that previously used getReason(), provide a
+     * simple accessor that delegates to getMessage(). Prefer getMessage() in new code.
      */
     public String getReason() {
-        return reason;
+        return getMessage();
     }
 
-    /**
-     * Getter method for reason
-     * @param reason
-     */
-    public void setReason(String reason) {
-        this.reason = reason;
+    @Override
+    public String toString() {
+        return "LedgerException{" +
+                "action='" + action + '\'' +
+                ", reason='" + getMessage() + '\'' +
+                '}';
     }
 }
