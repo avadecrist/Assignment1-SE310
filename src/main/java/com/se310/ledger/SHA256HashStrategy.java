@@ -19,7 +19,7 @@ public class SHA256HashStrategy implements HashStrategy {
             }
             return sb.toString();
         } catch (Exception e) {
-            // Fail-safe: return empty string on unexpected error. Callers can validate emptiness.
+            //failsafe
             return "";
         }
     }

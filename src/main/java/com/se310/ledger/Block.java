@@ -38,7 +38,7 @@ public class Block {
         return blockNumber;
     }
 
-    // Removed setBlockNumber to keep block identity immutable after creation.
+    // Removed setBlockNumber (immutablity)
 
     /**
      * Getter method for the Hash of the previous block

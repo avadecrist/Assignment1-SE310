@@ -17,14 +17,11 @@ import java.util.stream.Stream;
  * @version 1.0
  */
 public class CommandProcessor {
-    // Make ledger an instance field so CommandProcessor instances don't share global state.
-    // Principle: Dependency Inversion & Single Responsibility - allow multiple processors/ledgers and easier testing.
+    // Make ledger an instance field so CommandProcessor instances don't share one state.
+    //DIP & SRP - allow multiple processors/ledgers and easier testing.
     private Ledger ledger = null;
 
-    /**
-     * Process a single command line. Converted from static to instance method so the processor can
-     * maintain instance-scoped state (ledger) and be injected or mocked in tests.
-     */
+
     public void processCommand(String command) throws CommandProcessorException {
 
         // Tokenize the incoming command using a helper to separate concerns (SRP).
@@ -164,8 +161,8 @@ public class CommandProcessor {
     }
 
     /**
-     * Tokenize the raw command string into a List of tokens. Extracted from the original inline logic
-     * so parsing concerns are separated from command execution (SRP).
+     * Tokenize the raw command string into a List of tokens.
+     *parsing concerns are separated from command execution (SRP).
      */
     private List<String> tokenize(String command) {
         List<String> tokens = new ArrayList<>();
@@ -181,10 +178,10 @@ public class CommandProcessor {
      */
     public void processCommandFile(String fileName){
 
-        // Removed unused tokens variable; this method streams lines and delegates to processCommand
+        // Removed unused tokens variable; delegate to processCommand
         AtomicInteger atomicInteger = new AtomicInteger(0);
 
-        //Process all the lines in the file
+        //Process all lines in the file
         try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
             stream
                     .forEach(line -> {
@@ -194,8 +191,6 @@ public class CommandProcessor {
                                 processCommand(line);
                             }
                         } catch (CommandProcessorException e) {
-                            // CommandProcessorException became immutable. Create a small view message
-                            // and print using the standard getMessage() and getCommand() accessors.
                             int currentLine = atomicInteger.get();
                             System.out.println("Failed due to: " + e.getMessage() + " for Command: " + e.getCommand()
                                     + " On Line Number: " + currentLine);

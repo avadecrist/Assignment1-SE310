@@ -5,13 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * TransactionProcessor is responsible for applying a Transaction to the Ledger state.
- * 
- * SOLID notes (in-code):
- * - Single Responsibility: moves transaction application & block-commit logic out of Ledger.
- * - Open/Closed: behavior can be extended (e.g., alternative commit strategies) by introducing interfaces.
- * - Dependency Inversion: depends on the Ledger abstraction by receiving a Ledger instance; could be
- *   refactored to depend on an interface for easier testing.
+ * TransactionProcessor encapsulates transaction processing rules.
+ *
  */
 public class TransactionProcessor {
 
@@ -21,10 +16,7 @@ public class TransactionProcessor {
         this.ledger = ledger;
     }
 
-    /**
-     * Process the transaction by applying balance changes and committing blocks when full.
-     * Returns the transaction id on success.
-     */
+    //Process transaction by applying balance changes and committing blocks when full, Returns the transaction id on success.
     public synchronized String processTransaction(Transaction transaction) throws LedgerException {
 
         // Validate basic invariants (kept here to encapsulate processing-specific rules)
@@ -60,22 +52,22 @@ public class TransactionProcessor {
         }
         tempReceiverAccount.credit(transaction.getAmount());
 
-    // Add transaction to uncommitted block using Block API (encapsulation)
+    //add transaction to uncommitted block using Block API (encapsulation)
     ledger.getUncommittedBlock().addTransaction(transaction);
 
-        // Check to see if uncommitted block has reached max size and commit if needed
+        //see if uncommitted block has reached max size and commit if needed
         if (ledger.getUncommittedBlock().getTransactionList().size() == 10) {
 
             List<String> tempTxList = new ArrayList<>();
             tempTxList.add(ledger.getSeed());
 
-            // Build merkle input
+            //build merkle input
             for (Transaction tempTx : ledger.getUncommittedBlock().getTransactionList()) {
                 tempTxList.add(tempTx.toString());
             }
 
             MerkleTrees merkleTrees = new MerkleTrees(tempTxList);
-            // MerkleTrees now computes the root at construction (DIP + SRP). Use getRoot() directly.
+            // merkleTrees now computes the root at construction (DIP + SRP). Use getRoot() directly.
             ledger.getUncommittedBlock().setHash(merkleTrees.getRoot());
 
             // Commit the block into ledger's block map

@@ -6,9 +6,6 @@ import java.util.Map;
 /**
  * LedgerValidator encapsulates ledger validation rules.
  *
- * SOLID notes:
- * - Single Responsibility: validation rules are in their own class, keeping Ledger focused on state management.
- * - Open/Closed: new validation rules can be added here without modifying Ledger.
  */
 public class LedgerValidator {
 

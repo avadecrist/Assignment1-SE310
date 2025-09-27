@@ -13,18 +13,14 @@ public class Ledger {
     private String name;
     private String description;
     private String seed;
-    // Make blockMap and uncommittedBlock instance fields to avoid shared mutable static state.
-    // Principle: Single Responsibility & Dependency Inversion — keep Ledger instance-scoped so multiple ledgers
-    // (for tests or DI) can exist and so state isn't shared globally.
     private NavigableMap<Integer, Block> blockMap;
     private Block uncommittedBlock;
-
     // Keep a single Ledger singleton entry point but internal state is instance-based.
     private static Ledger ledger;
 
-    // Delegate responsibilities to collaborators to follow Single Responsibility and Dependency Inversion:
-    // - TransactionProcessor handles transaction application logic and block committing.
-    // - LedgerValidator handles validation rules for the ledger.
+    // SRP and DIP through TransactionProcessor and LedgerValidator 
+    //TransactionProcessor handles transaction application logic and block committing.
+    //LedgerValidator handles validation rules for the ledger.
     private final TransactionProcessor transactionProcessor;
     private final LedgerValidator ledgerValidator;
 
@@ -100,8 +96,8 @@ public class Ledger {
      * Getter Method for the seed
      * @return String
      */
-    // Removed public getSeed to reduce public API surface. A package-private accessor is provided
-    // for collaborators (TransactionProcessor) that need read access.
+
+    // Removed public getSeed. access for collaborators in TransactionProcessor
 
     /**
      * Setter Method for the seed
@@ -118,8 +114,6 @@ public class Ledger {
      */
     public Account createAccount(String address) throws LedgerException {
 
-        // Validate account does not already exist in the current uncommitted block
-        // Principle: SRP — Ledger is responsible for account lifecycle operations; keep check here concise.
         if (uncommittedBlock.getAccount(address) != null) {
             throw new LedgerException("Create Account", "Account Already Exists");
         }
@@ -136,10 +130,8 @@ public class Ledger {
      * @throws LedgerException
      */
     public synchronized String processTransaction(Transaction transaction) throws LedgerException {
-
-        // Delegate transaction processing to a dedicated processor to follow SRP.
-        // TransactionProcessor handles applying balances, committing blocks, and creating merkle roots.
-        // Principle: SRP (separate processing from Ledger container) and Dependency Inversion (Ledger delegates to a collaborator).
+        //SRP
+        // TransactionProcessor handles applying balances, committing blocks, and creating merkle roots. seperates ledger from processing logic
         return this.transactionProcessor.processTransaction(transaction);
     }
 
@@ -243,8 +235,8 @@ public class Ledger {
      * Check account balances against the total
      */
     public void validate() throws LedgerException {
-    // Delegate validation to LedgerValidator to keep Ledger focused on state management.
-    // Principle: SRP (separate validation logic) and OCP (Validator can be extended with new rules without modifying Ledger).
+    // Delegate validation to LedgerValidator 
+    // Principle: SRP-separate validation logic and OCP-Validator can be extended with new rules without modifying Ledger.
     this.ledgerValidator.validate();
 
     }
@@ -257,18 +249,17 @@ public class Ledger {
         return uncommittedBlock;
     }
 
-    // Package-private accessor for collaborators (TransactionProcessor) to update uncommitted block.
-    // Kept non-public to avoid widening API surface.
+    // accessor for TransactionProcessor to update block.
     void setUncommittedBlock(Block block) {
         this.uncommittedBlock = block;
     }
 
-    // Package-private accessor for TransactionProcessor to commit into blockMap.
+    // Accessor- TransactionProcessor to commit into blockMap.
     java.util.NavigableMap<Integer, Block> getBlockMap() {
         return this.blockMap;
     }
 
-    // Package-private accessor for TransactionProcessor to read the ledger seed.
+    //accessor for TransactionProcessor to read the ledger seed.
     String getSeed() {
         return this.seed;
     }

@@ -31,7 +31,6 @@ public class MerkleTrees {
 
     /**
      * Construct and compute the Merkle root with an injected hash strategy.
-     * This follows DIP and makes the class testable with a deterministic hash implementation.
      */
     public MerkleTrees(List<String> txList, HashStrategy hashStrategy) {
         this.leaves = new ArrayList<>(txList == null ? List.of() : txList);

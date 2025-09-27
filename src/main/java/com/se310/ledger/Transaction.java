@@ -8,13 +8,11 @@ package com.se310.ledger;
  */
 public class Transaction {
 
-    // Make fields final to make Transaction immutable (Single Responsibility: represent a transaction value)
+    // Make fields final to make Transaction immutable SRP
     private final String transactionId;
     private final Integer amount;
     private final Integer fee;
     private final String note;
-    // Store only addresses (Strings) for payer and receiver to avoid coupling Transaction to mutable Account
-    // objects. This enforces immutability and SRP: Transaction is a data record only.
     private final String payerAddress;
     private final String receiverAddress;
 
@@ -28,7 +26,7 @@ public class Transaction {
      * @param receiver
      */
     /**
-     * Constructor enforces all invariants for a Transaction.
+     * Invariants are enforced in const
      * Comments: validate inputs here to keep Transaction instances always valid (Single Responsibility).
      */
     public Transaction(String transactionId, Integer amount, Integer fee, String note, String payerAddress, String receiverAddress) {
@@ -37,22 +35,22 @@ public class Transaction {
             throw new IllegalArgumentException("transactionId must be provided");
         }
 
-        // Validate amount (cannot be null and must be non-negative)
+        // Validate amount
         if (amount == null || amount < 0) {
             throw new IllegalArgumentException("amount must be a non-negative Integer");
         }
 
-        // Validate fee (cannot be null and must be non-negative)
+        // Validate fee
         if (fee == null || fee < 0) {
             throw new IllegalArgumentException("fee must be a non-negative Integer");
         }
 
-        // Validate note (allow null but convert to empty string to simplify usage)
+        // Validate note 
         if (note == null) {
             note = ""; // normalize null to empty
         }
 
-        // Validate addresses (cannot be null/empty)
+        // Validate addresses 
         if (payerAddress == null || payerAddress.trim().isEmpty() || receiverAddress == null || receiverAddress.trim().isEmpty()) {
             throw new IllegalArgumentException("payerAddress and receiverAddress must be provided");
         }
@@ -77,8 +75,7 @@ public class Transaction {
      * Setter method for transaction id
      * @param transactionId
      */
-    // Removed setter to make Transaction immutable. Mutability caused by setters violates Single Responsibility
-    // and can lead to unexpected state changes elsewhere in the system.
+    // Removed setter for transaction immutability
 
     /**
      * Getter method for transaction amount
@@ -92,7 +89,7 @@ public class Transaction {
      * Setter method for transaction amount
      * @param amount
      */
-    // Setter removed: amount is final and set at construction time.
+    // Setter removed
 
     /**
      * Getter method for transaction fee
@@ -106,7 +103,7 @@ public class Transaction {
      * Setter method for transaction fee
      * @param fee
      */
-    // Setter removed: fee is final and set at construction time.
+    // Setter removed
 
     /**
      * Getter method for transaction note
@@ -120,13 +117,13 @@ public class Transaction {
      * Setter method for transaction note
      * @param note
      */
-    // Setter removed: note is final and set at construction time.
+    // Setter removed
 
     /**
      * Getter method for payer
      * @return
      */
-    // Getter returns payer address; Transaction no longer exposes Account objects (decoupled)
+    // Getter returns payer address; Transaction doesnt show Account objects (decoupled)
     public String getPayerAddress() {
         return payerAddress;
     }
@@ -135,13 +132,13 @@ public class Transaction {
      * Setter method for payer
      * @param payer
      */
-    // Setter removed: payer is final and set at construction time.
+    // Setter removed
 
     /**
      * Getter method for receiver
      * @return
      */
-    // Getter returns receiver address; Transaction no longer exposes Account objects (decoupled)
+    // Getter returns receiver address; Transaction doesnt show Account objects
     public String getReceiverAddress() {
         return receiverAddress;
     }
@@ -150,7 +147,7 @@ public class Transaction {
      * Setter method for receiver
      * @param receiver
      */
-    // Setter removed: receiver is final and set at construction time.
+    // Setter removed:
 
     /**
      * Method used by MerkleTrees
@@ -158,7 +155,7 @@ public class Transaction {
      */
     @Override
     public String toString() {
-        // keep the representation stable; using immutable fields ensures consistency when toString is called
+    // keep the representation stable; using immutable fields ensures consistency when toString is called
     // Use stored addresses in representation; works consistently because Transaction is immutable
     return "Transaction Id: " + transactionId +
         ", Amount: " + amount +

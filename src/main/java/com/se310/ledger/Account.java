@@ -39,7 +39,7 @@ public class Account {
         return address;
     }
 
-    // Removed setAddress to keep account identity immutable (SRP: account identity shouldn't change)
+    // Removed setAddress 
 
     /**
      * Getter method for account balance
